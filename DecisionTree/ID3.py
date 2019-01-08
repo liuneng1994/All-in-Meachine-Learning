@@ -67,11 +67,12 @@ class ID3:
         return node
 
     @staticmethod
-    def _entropy(feature, label):
+    def _gain(feature, label):
         label_group_feature = defaultdict(list)
         for fe, label in zip(feature, label):
             label_group_feature[label].append(fe)
-        sum_entropy = 0
+        after_entropy = 0
+        before_entropy = entropy(np.asarray(list(Counter(label).values())) / len(label))
         for label in label_group_feature:
             feature = label_group_feature[label]
             feature_counter = Counter(feature)
@@ -79,8 +80,8 @@ class ID3:
             pk = feature_counts / np.sum(feature_counts)
             e = entropy(pk)
             label_portion = len(label_group_feature) / len(label)
-            sum_entropy += e * label_portion
-        return sum_entropy
+            after_entropy += e * label_portion
+        return after_entropy - before_entropy
 
     @staticmethod
     def _best_split_feature(x, y, remain_features):
@@ -90,12 +91,12 @@ class ID3:
         best_feature = None
         best_metric = None
         for feature in remain_features:
-            metric = ID3._entropy(x[feature], y)
+            metric = ID3._gain(x[feature], y)
             metric_map[feature] = metric
             if best_metric is None:
                 best_metric = metric
                 best_feature = feature
-            elif best_metric > metric:
+            elif best_metric < metric:
                 best_metric = metric
                 best_feature = feature
         return best_feature, best_metric
@@ -105,8 +106,6 @@ if __name__ == '__main__':
     dataset = pd.read_csv("xigua3.csv")
     x = dataset[["色泽", "根蒂", "敲声", "纹理", "脐部", "触感"]]
     y = dataset["好瓜"]
-    from sklearn.model_selection import train_test_split
-
     model = ID3()
     model.fit(x, y)
     print("实际值", y)
