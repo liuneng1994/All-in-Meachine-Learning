@@ -28,13 +28,17 @@ class ID3:
 
     @staticmethod
     def _look_up(features, node):
+        label = None
         if "label" in node:
-            return node["label"]
+            label = node["label"]
         else:
             for n in node["nodes"]:
                 fe_name = n["split_feature"]
                 if features[fe_name] == n["feature_value"]:
-                    return ID3._look_up(features, n)
+                    label = ID3._look_up(features, n)
+        if label is None:
+            label = "Lookup Fail"
+        return label
 
     @staticmethod
     def _most_common_label(labels):
@@ -67,26 +71,24 @@ class ID3:
         return node
 
     @staticmethod
-    def _gain(feature, label):
-        label_group_feature = defaultdict(list)
-        for fe, label in zip(feature, label):
-            label_group_feature[label].append(fe)
+    def _gain(x, y):
+        fe_group_feature = defaultdict(list)
+        for fe, label in zip(x, y):
+            fe_group_feature[fe].append(label)
         after_entropy = 0
-        before_entropy = entropy(np.asarray(list(Counter(label).values())) / len(label))
-        for label in label_group_feature:
-            feature = label_group_feature[label]
-            feature_counter = Counter(feature)
-            feature_counts = np.asarray(list(feature_counter.values()))
-            pk = feature_counts / np.sum(feature_counts)
+        before_entropy = entropy(np.asarray(list(Counter(y).values())) / len(y))
+        for fe in fe_group_feature:
+            labels = fe_group_feature[fe]
+            label_counter = Counter(labels)
+            label_counts = np.asarray(list(label_counter.values()))
+            pk = label_counts / np.sum(label_counts)
             e = entropy(pk)
-            label_portion = len(label_group_feature) / len(label)
+            label_portion = len(fe_group_feature[fe]) / len(y)
             after_entropy += e * label_portion
-        return after_entropy - before_entropy
+        return before_entropy - after_entropy
 
     @staticmethod
     def _best_split_feature(x, y, remain_features):
-        if len(remain_features) == 0:
-            return remain_features[0]
         metric_map = dict()
         best_feature = None
         best_metric = None
@@ -106,7 +108,12 @@ if __name__ == '__main__':
     dataset = pd.read_csv("xigua3.csv")
     x = dataset[["色泽", "根蒂", "敲声", "纹理", "脐部", "触感"]]
     y = dataset["好瓜"]
+    from sklearn.model_selection import train_test_split
+
+    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.1)
     model = ID3()
-    model.fit(x, y)
-    print("实际值", y)
-    print("预测值", model.predict(x))
+    model.fit(X_train, y_train)
+    print("实际值", y_test)
+    pred = model.predict(X_test)
+    print("预测值", pred)
+    print("acc:", np.sum(pred.values == y_test.values) / len(pred))
